@@ -5,14 +5,25 @@ error_reporting(E_ALL & ~E_NOTICE & ~E_STRICT & ~E_DEPRECATED);
 ini_set('display_errors', 0);
 ini_set('log_errors', 1);
 
-// Logs must live outside the webroot: anything under /MK/ is downloadable,
-// and these files contain stack traces, SQL errors and reset links.
-$mkLogDir = 'C:\\xampp\\mk-logs';
-if (!is_dir($mkLogDir)) {
-    @mkdir($mkLogDir, 0777, true);
-}
-if (!is_dir($mkLogDir) || !is_writable($mkLogDir)) {
-    $mkLogDir = 'C:\\xampp\\mailoutput';
+// Logs must live outside the webroot on Windows (XAMPP).
+// On Linux VPS they go to the system temp directory or /var/log if writable.
+if (PHP_OS_FAMILY === 'Windows' || strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+    $mkLogDir = 'C:\\xampp\\mk-logs';
+    if (!is_dir($mkLogDir)) {
+        @mkdir($mkLogDir, 0777, true);
+    }
+    if (!is_dir($mkLogDir) || !is_writable($mkLogDir)) {
+        $mkLogDir = sys_get_temp_dir();
+    }
+} else {
+    // Linux VPS: write logs next to the project, outside webroot if possible
+    $mkLogDir = dirname(__DIR__) . '/mk-logs';
+    if (!is_dir($mkLogDir)) {
+        @mkdir($mkLogDir, 0755, true);
+    }
+    if (!is_dir($mkLogDir) || !is_writable($mkLogDir)) {
+        $mkLogDir = sys_get_temp_dir();
+    }
 }
 define('MK_LOG_DIR', $mkLogDir);
 ini_set('error_log', MK_LOG_DIR . DIRECTORY_SEPARATOR . 'MK-api-error.log');
@@ -29,12 +40,14 @@ register_shutdown_function(function () {
 define('MK_PHOTO_WIDTH', 1024);
 define('MK_PHOTO_HEIGHT', 1536);
 
-// Reset links must not be built from the Host header: a poisoned header would
-// send the recipient a link that leaks their token to an attacker's domain.
-// Change this to your live domain when deploying (e.g. 'https://mkevent.co.rw').
-define('MK_RESET_BASE_URL', isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on'
-    ? 'https://' . $_SERVER['SERVER_NAME']
-    : 'http://localhost/MK');
+// Build the base URL from the actual request so it works on both localhost and mkevent.co.rw
+// without any manual change needed.
+$_mkScheme = (
+    (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ||
+    (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')
+) ? 'https' : 'http';
+$_mkHost = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : $_SERVER['SERVER_NAME'];
+define('MK_RESET_BASE_URL', $_mkScheme . '://' . $_mkHost);
 define('MK_RESET_TOKEN_TTL', 3600);
 define('MK_MAIL_LOG', MK_LOG_DIR . DIRECTORY_SEPARATOR . 'MK-mail.log');
 
@@ -180,7 +193,7 @@ try {
                 jsonResponse(array(
                     'success' => false,
                     'message' => 'Reset link created, but the email was NOT sent: ' . $mail['error']
-                        . ' Check C:\\xampp\\sendmail\\sendmail.ini and try again.'
+                        . ' Check your server sendmail/SMTP configuration and try again.'
                 ), 502);
             }
 
@@ -337,7 +350,7 @@ try {
                         jsonResponse(array('success' => true, 'message' => 'Settings saved successfully'));
                     } catch (PDOException $e) {
                         error_log('Settings Update Error: ' . $e->getMessage());
-                        jsonResponse(array('success' => false, 'message' => 'The server could not save the settings. See C:\\xampp\\mk-logs\\MK-api-error.log.'), 500);
+                        jsonResponse(array('success' => false, 'message' => 'The server could not save the settings. Check the API error log.'), 500);
                     }
                 }
             } else {
@@ -396,14 +409,14 @@ function serverError($context, Exception $e) {
     error_log($context . ' failed: ' . $e->getMessage());
     jsonResponse(array(
         'success' => false,
-        'message' => 'The server could not complete this request. Check ' . MK_LOG_DIR . '\\MK-api-error.log.'
+        'message' => 'The server could not complete this request. Check the API error log at: ' . MK_LOG_DIR . '/MK-api-error.log'
     ), 500);
 }
 
 // Handle file uploads
 function uploadErrorMessage($code) {
     $map = array(
-        UPLOAD_ERR_INI_SIZE => 'The photo is larger than the PHP upload_max_filesize limit. Raise it in C:\\xampp\\php\\php.ini or use a smaller photo.',
+        UPLOAD_ERR_INI_SIZE => 'The photo is larger than the PHP upload_max_filesize limit. Resize it or ask your host to raise the limit.',
         UPLOAD_ERR_FORM_SIZE => 'The photo is larger than the maximum this form allows.',
         UPLOAD_ERR_PARTIAL => 'The photo was only partially uploaded. Please try again.',
         UPLOAD_ERR_NO_TMP_DIR => 'The server has no temporary directory to receive the photo.',
@@ -834,7 +847,7 @@ function handleTable($db, $table, $method, $input, $path) {
             jsonResponse(array('success' => true, 'data' => array('id' => $db->lastInsertId(), 'photo' => isset($input[$photoColumn]) ? $input[$photoColumn] : null)));
         } catch (PDOException $e) {
             error_log('POST ' . $table . ' failed: ' . $e->getMessage());
-            jsonResponse(array('success' => false, 'message' => 'The server could not save this item. See C:\\xampp\\mk-logs\\MK-api-error.log.'), 500);
+            jsonResponse(array('success' => false, 'message' => 'The server could not save this item. Check the API error log.'), 500);
         }
     }
 
@@ -870,7 +883,7 @@ function handleTable($db, $table, $method, $input, $path) {
             jsonResponse(array('success' => true));
         } catch (PDOException $e) {
             error_log('PUT ' . $table . '/' . $id . ' failed: ' . $e->getMessage());
-            jsonResponse(array('success' => false, 'message' => 'The server could not update this item. See C:\\xampp\\mk-logs\\MK-api-error.log.'), 500);
+            jsonResponse(array('success' => false, 'message' => 'The server could not update this item. Check the API error log.'), 500);
         }
     }
 

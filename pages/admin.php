@@ -31,7 +31,7 @@ $base = MK_BASE;
 
   function renderLogin(){
     root.innerHTML = '';
-    var box = el('<div class="login-page"><form class="login-box"><h1>MK Admin</h1><p class="sub">Sign in to manage MK Event Company</p><div id="err"></div><div class="form-group" style="margin-bottom:.8rem"><label>Username</label><input id="user" value="admin" required /></div><div class="form-group" style="margin-bottom:1rem"><label>Password</label><input id="pass" type="password" value="password" required /></div><button class="btn btn-gold" style="width:100%" type="submit">Login</button><p class="sub" style="margin-top:1rem;margin-bottom:0"><a href="'+(MK_BASE||'')+'/pages/forgot-password.php'" style="color:var(--gold);text-decoration:none">Forgot Password?</a></p><p class="sub" style="margin-bottom:0">Demo: admin / password</p></form></div>');
+    var box = el('<div class="login-page"><form class="login-box"><h1>MK Admin</h1><p class="sub">Sign in to manage MK Event Company</p><div id="err"></div><div class="form-group" style="margin-bottom:.8rem"><label>Username</label><input id="user" value="admin" required /></div><div class="form-group" style="margin-bottom:1rem"><label>Password</label><input id="pass" type="password" value="password" required /></div><button class="btn btn-gold" style="width:100%" type="submit">Login</button><p class="sub" style="margin-top:1rem;margin-bottom:0"><a href="'+(MK_BASE||'')+'/pages/forgot-password.php" style="color:var(--gold);text-decoration:none">Forgot Password?</a></p><p class="sub" style="margin-bottom:0">Demo: admin / password</p></form></div>');
     root.appendChild(box);
     box.querySelector('form').onsubmit = function(e){
       e.preventDefault();

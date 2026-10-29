@@ -74,8 +74,7 @@ function apiJson(res) {
     } catch (e) {
       return {
         success: false,
-        message: 'The server replied with an invalid response (HTTP ' + res.status + ').'
-          + ' Check C:\\xampp\\mk-logs\\MK-api-error.log.'
+        message: 'The server replied with an invalid response (HTTP ' + res.status + '). Check the server error log or contact your hosting provider.'
       };
     }
   });
